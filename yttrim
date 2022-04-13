@@ -19,8 +19,8 @@ helpinfo() {
 Usage: yttrim [OPTION]...
 Trim portions from online videos with ease.
 
-  -b/--begin <timestamp>  start timestamp
-  -e/--end <timestamp>    end timestamp
+  -ss <timestamp>         start timestamp
+  -to <timestamp>         end timestamp
   -f/--filename <name>    filename to be saved as
   -l/--link <link>        audio/video link
   -m/--audio-only         to download the audio only
@@ -121,8 +121,8 @@ depcheck "yt-dlp" "ffmpeg" "fzf"
 
 while [ "$1" != "" ]; do
     case $1 in
-    -b | --begin) shift; begin=$1 ;; 
-    -e | --end) shift; end=$1 ;; 
+    -ss) shift; begin=$1 ;; 
+    -to) shift; end=$1 ;; 
     -f | --filename) shift; filename=$1 ;; 
     -l | --link) shift; link=$1 ;; 
     -m | --audio-only) audio_only=y ;; 

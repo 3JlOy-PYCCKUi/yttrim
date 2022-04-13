@@ -19,8 +19,8 @@ Trim portions from online videos with ease.
 ```
 Usage: yttrim [OPTION]...
 
-  -b/--begin <timestamp>  start timestamp
-  -e/--end <timestamp>    end timestamp
+  -ss <timestamp>         start timestamp
+  -to <timestamp>         end timestamp
   -f/--filename <name>    filename to be saved as
   -l/--link <link>        audio/video link
   -m/--audio-only         to download the audio only

@@ -1,0 +1,149 @@
+#!/bin/bash
+
+###########################################################
+### YTTRIM ################################################
+
+###########################################################
+### VARIABLES #############################################
+
+ff="ffmpeg -loglevel quiet -stats"
+fzf="fzf -e --info=inline"
+
+###########################################################
+### FUNCTIONS #############################################
+
+### HELP ##################################################
+
+helpinfo() {
+  cat << EOF
+Usage: yttrim [OPTION]...
+Trim portions from online videos with ease.
+
+  -b/--begin <timestamp>  start timestamp
+  -e/--end <timestamp>    end timestamp
+  -f/--filename <name>    filename to be saved as
+  -l/--link <link>        audio/video link
+  -m/--audio-only         to download the audio only
+  --csv-gen               generate a template CSV (for batch trim)
+  --csv <file>            provide the csv file for batch trim
+  -h/--help               display this help and exit
+
+EOF
+}
+
+### CSV ###################################################
+
+csv_gen() {
+  printf "Link,Beginning,End,Filename,Audio_only\t[FIRST LINE IS IGNORED]\n\n" > ./input.csv
+  echo "Template CSV generated."
+}
+
+csv_parse() {
+  for line in $(nl -s, <(tail -n+2 $csv_file))
+  do
+    num=$(cut -d, -f1 <(echo $line))
+    link=$(cut -d, -f2 <(echo $line))
+    begin=$(cut -d, -f3 <(echo $line))
+    end=$(cut -d, -f4 <(echo $line))
+    filename=$(cut -d, -f5 <(echo $line))
+    audio_only=$(cut -d, -f6 <(echo $line))
+
+    echo -e \
+    "\n\e[4mNum\e[0m -> $num \
+    \n\e[4mLink\e[0m -> $link \
+    \n\e[4mBeginning\e[0m -> $begin \
+    \n\e[4mEnd\e[0m -> $end \
+    \n\e[4mFile\e[0m -> $filename \
+    \n\e[4mAudio\e[0m -> $audio_only\n"
+
+    case $audio_only in
+      y) audiod ;;
+      n) videod ;;
+      *) printf "Invalid choice.\n";;
+    esac
+ 
+    unset $num $begin $end $filename $link $audio_only
+
+  done
+}
+
+### CONVERSION AND STUFF ##################################
+
+audiod() {
+  $ff -ss "$begin" -to "$end" \
+    -i "$(yt-dlp -f bestaudio -g "$link")" "$filename.m4a" && \
+    printf "Audio extracted and saved as M4A.\n"
+}
+
+merge() {
+  audiod
+
+  $ff -ss "$begin" -to "$end" -i \
+    "$(yt-dlp -f "$ql" -g "$link")" "$filename.mkv" && \
+    printf "Video extracted.\n"
+
+  $ff -i "$filename.mkv" -i "$filename.m4a" -c copy "$filename-merged.mkv" && \
+    rm "$filename".{mkv,m4a} && \
+    printf "Video and audio files merged into MKV.\nDeleted input files.\n"
+}
+
+videod() {
+  qual=$(yt-dlp -F "$link" | tail -n+4 | $fzf \
+    --preview="echo -e {6}'\n'{1}'\n'{3} {9..10} {2}" \
+    --preview-window=top,30%)
+
+  ql=${qual%% *}
+  
+  if [ -z "$(grep only <<< "$qual")" ]
+  then 
+    $ff -ss "$begin" -to "$end" -i "$(yt-dlp -f "$ql" -g "$link")" "$filename.mp4" && \
+      printf "Video extracted and saved as MP4.\n"
+   else
+     merge
+  fi
+}
+
+### IMP ###################################################
+
+depcheck() {
+	for dep; do
+    if [[ -z $(command -v "$dep") ]]; then
+			printf "%s not found. Please install it.\n" "$dep" >&2
+			exit 2
+		fi
+	done
+	unset dep
+}
+
+###########################################################
+
+depcheck "yt-dlp" "ffmpeg" "fzf"
+
+while [ "$1" != "" ]; do
+    case $1 in
+    -b | --begin) shift; begin=$1 ;; 
+    -e | --end) shift; end=$1 ;; 
+    -f | --filename) shift; filename=$1 ;; 
+    -l | --link) shift; link=$1 ;; 
+    -m | --audio-only) audio_only=y ;; 
+    --csv-gen) csv_gen && exit ;; 
+    --csv) shift; csv_file=$1; csv_parse && exit ;;
+    -h | --help) helpinfo && exit ;;
+    *) helpinfo && exit ;;
+    esac
+    shift
+done
+
+while [[ -z $link ]]; do read -rp "Enter link: " link; done
+while [[ -z $begin ]]; do read -rp "Enter beginning: " begin; done
+while [[ -z $end ]]; do read -rp "Enter end: " end; done
+while [[ -z $filename ]]; do read -rp "Enter filename: " filename; done
+while [[ -z $audio_only ]]; do read -rp "Audio only: [y/n] " audio_only; done
+
+case $audio_only in
+  y) audiod ;;
+  n) videod ;;
+  *) printf "Invalid choice.\n";;
+esac
+
+unset $begin $end $filename $link $audio_only

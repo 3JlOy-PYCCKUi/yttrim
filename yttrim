@@ -9,6 +9,9 @@
 ff="ffmpeg -loglevel quiet -stats"
 fzf="fzf -e --info=inline"
 
+underline="\e[4m"
+reset="\e[0m"
+
 ###########################################################
 ### FUNCTIONS #############################################
 
@@ -41,20 +44,21 @@ csv_gen() {
 csv_parse() {
   for line in $(nl -s, <(tail -n+2 $csv_file))
   do
-    num=$(cut -d, -f1 <(echo $line))
-    link=$(cut -d, -f2 <(echo $line))
-    begin=$(cut -d, -f3 <(echo $line))
-    end=$(cut -d, -f4 <(echo $line))
-    filename=$(cut -d, -f5 <(echo $line))
-    audio_only=$(cut -d, -f6 <(echo $line))
+    IFS=',' read -a array <<< "$line"
+    num=${array[0]}
+    link=${array[1]}
+    begin=${array[2]}
+    end=${array[3]}
+    filename=${array[4]}
+    audio_only=${array[5]}
 
     echo -e \
-    "\n\e[4mNum\e[0m -> $num \
-    \n\e[4mLink\e[0m -> $link \
-    \n\e[4mBeginning\e[0m -> $begin \
-    \n\e[4mEnd\e[0m -> $end \
-    \n\e[4mFile\e[0m -> $filename \
-    \n\e[4mAudio\e[0m -> $audio_only\n"
+    "\n${underline}Num${reset} -> $num \
+    \n${underline}Link${reset} -> $link \
+    \n${underline}Beginning${reset} -> $begin \
+    \n${underline}End${reset} -> $end \
+    \n${underline}File${reset} -> $filename \
+    \n${underline}Audio${reset} -> $audio_only\n"
 
     case $audio_only in
       y) audiod ;;
@@ -129,7 +133,7 @@ while [ "$1" != "" ]; do
     --csv-gen) csv_gen && exit ;; 
     --csv) shift; csv_file=$1; csv_parse && exit ;;
     -h | --help) helpinfo && exit ;;
-    *) helpinfo && exit ;;
+    *) echo "Invalid option." && helpinfo && exit ;;
     esac
     shift
 done

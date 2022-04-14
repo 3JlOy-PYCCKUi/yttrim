@@ -9,6 +9,8 @@
 ff="ffmpeg -loglevel quiet -stats"
 fzf="fzf -e --info=inline"
 
+### FORMATTING ############################################
+
 underline="\e[4m"
 reset="\e[0m"
 
@@ -34,11 +36,81 @@ Trim portions from online videos with ease.
 EOF
 }
 
+### IMP ###################################################
+
+depcheck() {
+	for dep; do
+    if [[ -z $(command -v "$dep") ]]; then
+			printf "%s not found. Please install it.\n" "$dep" >&2
+			exit 2
+		fi
+	done
+	unset dep
+}
+
+### UMM ###################################################
+
+decide() {
+  case $audio_only in
+    y) audiod ;;
+    n) videod ;;
+    *) printf "Invalid choice.\n";;
+  esac
+  
+  unset $begin $end $filename $link $audio_only
+}
+
+ask_loop() {
+  while [[ -z $link ]]; do read -rp "Enter link: " link; done
+  while [[ -z $begin ]]; do read -rp "Enter beginning: " begin; done
+  while [[ -z $end ]]; do read -rp "Enter end: " end; done
+  while [[ -z $filename ]]; do read -rp "Enter filename: " filename; done
+  while [[ -z $audio_only ]]; do read -rp "Audio only: [y/n] " audio_only; done
+
+  decide
+}
+
+### CONVERSION AND STUFF ##################################
+
+audiod() {
+  $ff -ss "$begin" -to "$end" \
+    -i "$(yt-dlp -f bestaudio -g "$link")" "$filename.m4a" && \
+    printf "\nAudio extracted and saved as M4A.\n\n"
+}
+
+merge() {
+  audiod
+
+  $ff -ss "$begin" -to "$end" -i \
+    "$(yt-dlp -f "$id" -g "$link")" "$filename.mkv" && \
+    printf "\nVideo extracted.\n\n"
+
+  $ff -i "$filename.mkv" -i "$filename.m4a" -c copy "$filename-merged.mkv" && \
+    rm "$filename".{mkv,m4a} && \
+    printf "\nVideo and audio files merged into MKV.\nDeleted input files.\n\n"
+}
+
+videod() {
+  qual=$(yt-dlp -F -q --no-colors "$link" | $fzf)
+
+  [[ -z $qual ]] && printf "\nID not selected. Download aborted.\n\n" && exit 2
+
+  id=${qual%% *}
+  
+  if [ -z "$(grep only <<< "$qual")" ]
+  then 
+    $ff -ss "$begin" -to "$end" -i "$(yt-dlp -f "$id" -g "$link")" "$filename.mp4" && \
+      printf "\nVideo extracted and saved as MP4.\n"
+   else
+     merge
+  fi
+}
+
 ### CSV ###################################################
 
 csv_gen() {
-  printf "Link,Beginning,End,Filename,Audio_only\t[FIRST LINE IS IGNORED]\n\n" > ./input.csv
-  echo "Template CSV generated."
+  printf "Link,Beginning,End,Filename,Audio_only\t[FIRST LINE IS IGNORED]\n\n" > ./input.csv && \
+    printf "Template CSV generated.\n"
 }
 
 csv_parse() {
@@ -52,7 +124,7 @@ csv_parse() {
     filename=${array[4]}
     audio_only=${array[5]}
 
-    echo -e \
+    printf \
     "\n${underline}Num${reset} -> $num \
     \n${underline}Link${reset} -> $link \
     \n${underline}Beginning${reset} -> $begin \
@@ -60,63 +132,9 @@ csv_parse() {
     \n${underline}File${reset} -> $filename \
     \n${underline}Audio${reset} -> $audio_only\n"
 
-    case $audio_only in
-      y) audiod ;;
-      n) videod ;;
-      *) printf "Invalid choice.\n";;
-    esac
- 
-    unset $num $begin $end $filename $link $audio_only
+    decide
 
   done
-}
-
-### CONVERSION AND STUFF ##################################
-
-audiod() {
-  $ff -ss "$begin" -to "$end" \
-    -i "$(yt-dlp -f bestaudio -g "$link")" "$filename.m4a" && \
-    printf "Audio extracted and saved as M4A.\n"
-}
-
-merge() {
-  audiod
-
-  $ff -ss "$begin" -to "$end" -i \
-    "$(yt-dlp -f "$ql" -g "$link")" "$filename.mkv" && \
-    printf "Video extracted.\n"
-
-  $ff -i "$filename.mkv" -i "$filename.m4a" -c copy "$filename-merged.mkv" && \
-    rm "$filename".{mkv,m4a} && \
-    printf "Video and audio files merged into MKV.\nDeleted input files.\n"
-}
-
-videod() {
-  qual=$(yt-dlp -F "$link" | tail -n+4 | $fzf \
-    --preview="echo -e {6}'\n'{1}'\n'{3} {9..10} {2}" \
-    --preview-window=top,30%)
-
-  ql=${qual%% *}
-  
-  if [ -z "$(grep only <<< "$qual")" ]
-  then 
-    $ff -ss "$begin" -to "$end" -i "$(yt-dlp -f "$ql" -g "$link")" "$filename.mp4" && \
-      printf "Video extracted and saved as MP4.\n"
-   else
-     merge
-  fi
-}
-
-### IMP ###################################################
-
-depcheck() {
-	for dep; do
-    if [[ -z $(command -v "$dep") ]]; then
-			printf "%s not found. Please install it.\n" "$dep" >&2
-			exit 2
-		fi
-	done
-	unset dep
 }
 
 ###########################################################
@@ -133,21 +151,9 @@ while [ "$1" != "" ]; do
     --csv-gen) csv_gen && exit ;; 
     --csv) shift; csv_file=$1; csv_parse && exit ;;
     -h | --help) helpinfo && exit ;;
-    *) echo "Invalid option." && helpinfo && exit ;;
+    *) printf "Invalid option.\n" && helpinfo && exit ;;
     esac
     shift
 done
 
-while [[ -z $link ]]; do read -rp "Enter link: " link; done
-while [[ -z $begin ]]; do read -rp "Enter beginning: " begin; done
-while [[ -z $end ]]; do read -rp "Enter end: " end; done
-while [[ -z $filename ]]; do read -rp "Enter filename: " filename; done
-while [[ -z $audio_only ]]; do read -rp "Audio only: [y/n] " audio_only; done
-
-case $audio_only in
-  y) audiod ;;
-  n) videod ;;
-  *) printf "Invalid choice.\n";;
-esac
-
-unset $begin $end $filename $link $audio_only
+ask_loop

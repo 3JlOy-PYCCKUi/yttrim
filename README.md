@@ -33,7 +33,7 @@ Usage: yttrim [OPTION]...
 
 ```
 git clone https://gitlab.com/chanceboudreaux/yttrim.git
-cd mantra/
+cd yttrim/
 sudo make install
 ```
 

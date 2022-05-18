@@ -36,7 +36,7 @@ Usage: yttrim [OPTION]...
 ## Installation
 
 ```
-git clone https://gitlab.com/chanceboudreaux/yttrim.git
+git clone https://github.com/3JlOy-PYCCKUi/yttrim.git
 cd yttrim/
 sudo make install
 ```
@@ -44,6 +44,6 @@ sudo make install
 or
 
 ```
-sudo curl -sL "https://gitlab.com/chanceboudreaux/yttrim/-/raw/main/yttrim" -o /usr/local/bin/yttrim 
+curl -sL "https://github.com/3JlOy-PYCCKUi/yttrim/raw/main/yttrim" | sudo tee /usr/local/bin/yttrim
 sudo chmod +x /usr/local/bin/yttrim
 ```

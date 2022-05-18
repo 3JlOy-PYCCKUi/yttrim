@@ -44,6 +44,6 @@ sudo make install
 or
 
 ```
-curl -sL "https://github.com/3JlOy-PYCCKUi/yttrim/raw/main/yttrim" | sudo tee /usr/local/bin/yttrim
+curl -sL "https://github.com/3JlOy-PYCCKUi/yttrim/raw/main/yttrim" | sudo tee /usr/local/bin/yttrim >/dev/null
 sudo chmod +x /usr/local/bin/yttrim
 ```

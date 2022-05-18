@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 ###########################################################
 ### YTTRIM ################################################
@@ -40,101 +40,101 @@ EOF
 
 depcheck() {
 	for dep; do
-    if [[ -z $(command -v "$dep") ]]; then
+    command -v "$dep" >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
 			printf "%s not found. Please install it.\n" "$dep" >&2
 			exit 2
 		fi
 	done
-	unset dep
+	unset -v dep
 }
 
 ### UMM ###################################################
 
 decide() {
-  case $audio_only in
+    case $audio_only in
     y) audiod ;;
     n) videod ;;
     *) printf "Invalid choice.\n";;
-  esac
-  
-  unset $begin $end $filename $link $audio_only
+    esac
+
+    unset -v begin end filename link audio_only
 }
 
 ask_loop() {
-  while [[ -z $link ]]; do read -rp "Enter link: " link; done
-  while [[ -z $begin ]]; do read -rp "Enter beginning: " begin; done
-  while [[ -z $end ]]; do read -rp "Enter end: " end; done
-  while [[ -z $filename ]]; do read -rp "Enter filename: " filename; done
-  while [[ -z $audio_only ]]; do read -rp "Audio only: [y/n] " audio_only; done
+    while [ -z $link ]; do printf "Enter link: "; read -r link; done
+    while [ -z "$begin" ]; do printf "Enter beginning: "; read -r begin; done
+    while [ -z "$end" ]; do printf "Enter end: "; read -r end; done
+    while [ -z "$filename" ]; do printf "Enter filename: "; read -r filename; done
+    while [ -z "$audio_only" ]; do printf "Audio only: [y/n] "; read -r audio_only; done
 
-  decide
+    decide
 }
 
 ### CONVERSION AND STUFF ##################################
 
 audiod() {
-  $ff -ss "$begin" -to "$end" \
-    -i "$(yt-dlp -f bestaudio -g "$link")" "$filename.m4a" && \
-    printf "\nAudio extracted and saved as M4A.\n\n"
+    $ff -ss "$begin" -to "$end" \
+        -i "$(yt-dlp -f bestaudio -g "$link")" "$filename.m4a" && \
+        printf "\nAudio extracted and saved as M4A.\n\n"
 }
 
 merge() {
-  audiod
+    audiod
 
-  $ff -ss "$begin" -to "$end" -i \
-    "$(yt-dlp -f "$id" -g "$link")" "$filename.mkv" && \
-    printf "\nVideo extracted.\n\n"
+    $ff -ss "$begin" -to "$end" -i \
+        "$(yt-dlp -f "$id" -g "$link")" "$filename.mkv" && \
+        printf "\nVideo extracted.\n\n"
 
-  $ff -i "$filename.mkv" -i "$filename.m4a" -c copy "$filename-merged.mkv" && \
-    rm "$filename".{mkv,m4a} && \
-    printf "\nVideo and audio files merged into MKV.\nDeleted input files.\n\n"
+    $ff -i "$filename.mkv" -i "$filename.m4a" -c copy "$filename-merged.mkv" && \
+        rm "$filename.mkv" "$filename.m4a" && \
+        printf "\nVideo and audio files merged into MKV.\nDeleted input files.\n\n"
 }
 
 videod() {
-  qual=$(yt-dlp -F -q --no-colors "$link" | $fzf)
+    qual=$(yt-dlp -F -q --no-colors "$link" | $fzf)
 
-  [[ -z $qual ]] && printf "\nID not selected. Download aborted.\n\n" && exit 2
+    [ -z "$qual" ] && printf "\nID not selected. Download aborted.\n\n" && exit 2
 
-  id=${qual%% *}
-  
-  if [ -z "$(grep only <<< "$qual")" ]
-  then 
-    $ff -ss "$begin" -to "$end" -i "$(yt-dlp -f "$id" -g "$link")" "$filename.mp4" && \
-      printf "\nVideo extracted and saved as MP4.\n"
-   else
-     merge
-  fi
+    id=${qual%% *}
+
+    echo "$qual" | grep -q only
+    if [ $? -ne 0 ]
+    then
+        $ff -ss "$begin" -to "$end" -i "$(yt-dlp -f "$id" -g "$link")" "$filename.mp4" && \
+            printf "\nVideo extracted and saved as MP4.\n"
+    else
+        merge
+    fi
 }
 
 ### CSV ###################################################
 
 csv_gen() {
-  printf "Link,Beginning,End,Filename,Audio_only\t[FIRST LINE IS IGNORED]\n\n" > ./input.csv && \
-    printf "Template CSV generated.\n"
+    printf "Link,Beginning,End,Filename,Audio_only\t[FIRST LINE IS IGNORED]\n\n" > ./input.csv && \
+        printf "Template CSV generated.\n"
 }
 
 csv_parse() {
-  for line in $(nl -s, <(tail -n+2 $csv_file))
-  do
-    IFS=',' read -a array <<< "$line"
-    num=${array[0]}
-    link=${array[1]}
-    begin=${array[2]}
-    end=${array[3]}
-    filename=${array[4]}
-    audio_only=${array[5]}
+    for line in $(tail -n+2 "$csv_file" | nl -s,)
+    do
+        num=$(echo "$line" | cut -d"," -f1)
+        link=$(echo "$line" | cut -d"," -f2)
+        begin=$(echo "$line" | cut -d"," -f3)
+        end=$(echo "$line" | cut -d"," -f4)
+        filename=$(echo "$line" | cut -d"," -f5)
+        audio_only=$(echo "$line" | cut -d"," -f6)
 
-    printf \
-    "\n${underline}Num${reset} -> $num \
-    \n${underline}Link${reset} -> $link \
-    \n${underline}Beginning${reset} -> $begin \
-    \n${underline}End${reset} -> $end \
-    \n${underline}File${reset} -> $filename \
-    \n${underline}Audio${reset} -> $audio_only\n"
+        printf \
+            "\n${underline}Num${reset} -> $num \
+            \n${underline}Link${reset} -> $link \
+            \n${underline}Beginning${reset} -> $begin \
+            \n${underline}End${reset} -> $end \
+            \n${underline}File${reset} -> $filename \
+            \n${underline}Audio${reset} -> $audio_only\n"
 
-    decide
-
-  done
+        decide
+    done
 }
 
 ###########################################################

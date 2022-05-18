@@ -3,6 +3,10 @@
 ![yttrim in action.](.assets/yttrim.mp4)
 
 Trim portions from online videos with ease.
+## Changes
+
+- Made it POSIX compliant
+- Added `lint` target in Makefile
 
 ## CSVs for batch trim
 

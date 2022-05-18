@@ -9,4 +9,7 @@ install:
 uninstall:
 	rm -f ${DESTDIR}${PREFIX}/${PROG}
 
-.PHONY: install uninstall
+lint:
+	shellcheck -s sh -S warning ${PROG}
+	
+.PHONY: install uninstall lint
